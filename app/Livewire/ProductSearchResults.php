@@ -2,9 +2,12 @@
 
 namespace App\Livewire;
 
+use App\DataObjects\LtvDataObject;
 use Livewire\Component;
 use App\Models\Product;
+use App\Services\GetProductQuotes;
 use App\Services\LtvCalculate;
+use Illuminate\Support\Collection;
 use Livewire\Attributes\On;
 
 class ProductSearchResults extends Component
@@ -14,9 +17,11 @@ class ProductSearchResults extends Component
     public $depositAmount;
 
     private LtvCalculate $ltvCalculate;
+    private GetProductQuotes $getProductQuotes;
 
-    public function boot(LtvCalculate $ltvCalculate){
+    public function boot(LtvCalculate $ltvCalculate, GetProductQuotes $getProductQuotes){
         $this->ltvCalculate = $ltvCalculate;
+        $this->getProductQuotes = $getProductQuotes;
     }
 
     #[On('searchProducts')]
@@ -28,35 +33,30 @@ class ProductSearchResults extends Component
     
     public function render()
     {
-        $searchProducts = $this->propertyValue && $this->depositAmount;
-
-        if ($searchProducts) {
-            
-            $ltvCalculatioin = $this->ltvCalculate->calculate($this->propertyValue, $this->depositAmount);
-            $netLoan = $ltvCalculatioin->netLoan;
-            $ltv = $ltvCalculatioin->ltv;
-
-            $products = Product::query()
-                ->where('max_ltv', '>=', $ltv)
-                ->orderBy('max_ltv')
-                ->get()
-                ->each(function (Product $product) use ($netLoan) {
-                    $product->fee_amount = $netLoan * $product->fee / 100;
-                    $product->gross_loan = $netLoan + $product->fee_amount;
-                    $product->monthly_interest = $product->gross_loan * $product->interest_rate / 100 / 12;
-                });
-        } else {
-            $netLoan = null;
-            $ltv = null;
-
-            $products = collect();
-        }
+        $ltvCalculation = $this->calculateLtv();
+        $productQuotes = $this->getProductQuotes($ltvCalculation);
 
         return view('livewire.product-search-results', [
-            'searchProducts' => $searchProducts,
-            'ltv' => $ltv,
-            'netLoan' => $netLoan,
-            'products' => $products,
+            'ltvCalculation' => $ltvCalculation,
+            'productQuotes' => $productQuotes,
         ]);
+    }
+
+    private function calculateLtv(): ?LtvDataObject
+    {
+        if ($this->propertyValue === null || $this->depositAmount === null) {
+            return null;
+        }
+
+        return $this->ltvCalculate->calculate($this->propertyValue, $this->depositAmount);
+    }
+
+    private function getProductQuotes(?LtvDataObject $ltvCalculation): Collection
+    {
+        if ($ltvCalculation === null) {
+            return collect();
+        }
+
+        return $this->getProductQuotes->get($ltvCalculation);
     }
 }

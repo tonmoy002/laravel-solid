@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use Livewire\Component;
 use App\Models\Product;
+use App\Services\LtvCalculate;
 use Livewire\Attributes\On;
 
 class ProductSearchResults extends Component
@@ -11,6 +12,12 @@ class ProductSearchResults extends Component
     public $propertyValue;
 
     public $depositAmount;
+
+    private LtvCalculate $ltvCalculate;
+
+    public function boot(LtvCalculate $ltvCalculate){
+        $this->ltvCalculate = $ltvCalculate;
+    }
 
     #[On('searchProducts')]
     public function searchProducts($formData)
@@ -24,8 +31,10 @@ class ProductSearchResults extends Component
         $searchProducts = $this->propertyValue && $this->depositAmount;
 
         if ($searchProducts) {
-            $netLoan = $this->propertyValue - $this->depositAmount;
-            $ltv = ($netLoan / $this->propertyValue) * 100;
+            
+            $ltvCalculatioin = $this->ltvCalculate->calculate($this->propertyValue, $this->depositAmount);
+            $netLoan = $ltvCalculatioin->netLoan;
+            $ltv = $ltvCalculatioin->ltv;
 
             $products = Product::query()
                 ->where('max_ltv', '>=', $ltv)

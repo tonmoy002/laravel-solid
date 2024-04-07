@@ -4,13 +4,21 @@ namespace App\Livewire;
 
 use Livewire\Component;
 use App\Models\Product;
+use Livewire\Attributes\On;
 
-class ProductSearch extends Component
+class ProductSearchResults extends Component
 {
     public $propertyValue;
 
     public $depositAmount;
 
+    #[On('searchProducts')]
+    public function searchProducts($formData)
+    {
+        [$this->propertyValue, $this->depositAmount] = $formData;
+    }
+
+    
     public function render()
     {
         $searchProducts = $this->propertyValue && $this->depositAmount;
@@ -35,18 +43,11 @@ class ProductSearch extends Component
             $products = collect();
         }
 
-        $featuredProducts = Product::query()
-            ->where('featured', true)
-            ->inRandomOrder()
-            ->take(5)
-            ->get();
-
-        return view('livewire.product-search', [
+        return view('livewire.product-search-results', [
             'searchProducts' => $searchProducts,
             'ltv' => $ltv,
             'netLoan' => $netLoan,
             'products' => $products,
-            'featuredProducts' => $featuredProducts,
         ]);
     }
 }
